@@ -4,34 +4,39 @@
 #include <fstream>
 #include <algorithm>
 #include <unordered_map>
+#include <iomanip>
+#include <sstream>
 
 using namespace std;
 
-// Login function
-string login() {
-    unordered_map<string, string> credentials = {
-        {"admin", "admin123"}, 
-        {"user", "user123"}    
-    };
-
-    string username, password;
-    cout << "Login\n";
-    cout << "Enter Username: ";
-    cin >> username;
-    cout << "Enter Password: ";
-    cin >> password;
-
-    if (credentials.find(username) != credentials.end() && credentials[username] == password) {
-        cout << "Login Successful!\n";
-        return username;
-    } else {
-        cout << "Invalid login credentials!\n";
-        return "";
+// Function to trim whitespace
+string trim(const string &str)
+{
+    size_t first = str.find_first_not_of(' ');
+    if (string::npos == first)
+    {
+        return str;
     }
+    size_t last = str.find_last_not_of(' ');
+    return str.substr(first, (last - first + 1));
+}
+
+// Hash function for password
+string hashPassword(const string &password)
+{
+    unsigned long hash = 0;
+    for (char c : password)
+    {
+        hash = (hash * 31) + c;
+    }
+    stringstream ss;
+    ss << hex << hash; // Convert the hash to a hexadecimal string
+    return ss.str();
 }
 
 // Product Class
-class Product {
+class Product
+{
 private:
     string productID;
     string name;
@@ -51,21 +56,25 @@ public:
     void updatePrice(double newPrice) { price = newPrice; }
     void updateName(string newName) { name = newName; }
 
-    void displayProduct() const {
+    void displayProduct() const
+    {
         cout << "ID: " << productID << ", Name: " << name
              << ", Quantity: " << quantity << ", Price: $" << price << endl;
     }
 
-    string toFileFormat() const {
+    string toFileFormat() const
+    {
         return productID + "," + name + "," + to_string(quantity) + "," + to_string(price);
     }
 
-    static Product fromFileFormat(const string &line) {
+    static Product fromFileFormat(const string &line)
+    {
         size_t pos = 0;
         vector<string> tokens;
         string modifiableLine = line;
 
-        while ((pos = modifiableLine.find(',')) != string::npos) {
+        while ((pos = modifiableLine.find(',')) != string::npos)
+        {
             tokens.push_back(modifiableLine.substr(0, pos));
             modifiableLine.erase(0, pos + 1);
         }
@@ -75,91 +84,141 @@ public:
 };
 
 // Order Class
-class Order {
+class Order
+{
 private:
-    string orderID;
-    vector<string> orderedProductIDs;
+    string orderID;                   // Unique identifier for the order
+    vector<string> orderedProductIDs; // List of product IDs in the order
+    vector<int> quantities;           // List of quantities for each product
+    time_t orderDate;                 // Date of the order
+    static int orderCounter;          // Counter for order IDs
 
 public:
-    Order(string id) : orderID(id) {}
+    Order(string id, time_t date) : orderID(id), orderDate(date) {}
 
-    void addProductID(const string &productID) {
+    void addProduct(const string &productID, int quantity)
+    {
         orderedProductIDs.push_back(productID);
+        quantities.push_back(quantity);
     }
-    vector<string> getOrderProductIDs() const { return orderedProductIDs; }
 
-    void displayOrder(const vector<Product> &inventory) const {
-        cout << "Order ID: " << orderID << endl;
-        for (const auto &productID : orderedProductIDs) {
-            auto it = find_if(inventory.begin(), inventory.end(), [&](const Product &p) {
-                return p.getProductID() == productID;
-            });
-            if (it != inventory.end()) {
+    vector<string> getOrderProductIDs() const { return orderedProductIDs; }
+    vector<int> getQuantities() const { return quantities; }
+    string getOrderID() const { return orderID; }
+    time_t getOrderDate() const { return orderDate; }
+
+    void displayOrder(const vector<Product> &inventory) const
+    {
+        cout << "Order ID: " << orderID << ", Date: " << ctime(&orderDate);
+        for (size_t i = 0; i < orderedProductIDs.size(); ++i)
+        {
+            auto it = find_if(inventory.begin(), inventory.end(), [&](const Product &p)
+                              { return p.getProductID() == orderedProductIDs[i]; });
+            if (it != inventory.end())
+            {
+                cout << "Product ID: " << orderedProductIDs[i] << ", Quantity: " << quantities[i] << endl;
                 it->displayProduct();
-            } else {
-                cout << "Product ID " << productID << " not found in inventory." << endl;
+            }
+            else
+            {
+                cout << "Product ID " << orderedProductIDs[i] << " not found in inventory." << endl;
             }
         }
     }
 
-    string toFileFormat() const {
-        string result = orderID;
-        for (const auto &productID : orderedProductIDs) {
-            result += "|" + productID;
+    string toFileFormat() const
+    {
+        string result = orderID + "," + to_string(orderDate);
+        for (size_t i = 0; i < orderedProductIDs.size(); ++i)
+        {
+            result += "|" + orderedProductIDs[i] + "," + to_string(quantities[i]);
         }
         return result;
     }
 
-    static Order fromFileFormat(const string &line) {
-        size_t pos = line.find('|');
-        string orderID = line.substr(0, pos);
-        Order order(orderID);
-
-        size_t start = pos + 1;
-        while ((pos = line.find('|', start)) != string::npos) {
-            order.addProductID(line.substr(start, pos - start));
-            start = pos + 1;
+    static Order fromFileFormat(const string &line)
+    {
+        stringstream ss(line);
+        string orderID;
+        string dateStr;
+        getline(ss, orderID, ',');
+        getline(ss, dateStr, ',');
+        time_t orderDate;
+        try
+        {
+            orderDate = static_cast<time_t>(stoll(dateStr)); // Convert string to time_t
         }
-        if (start < line.length()) {
-            order.addProductID(line.substr(start));
+        catch (const std::invalid_argument &e)
+        {
+            cerr << "Invalid date format in order file: " << dateStr << endl;
+            orderDate = time(0); // Set to current time as a fallback
+        }
+
+        Order order(orderID, orderDate);
+        string productData;
+        while (getline(ss, productData, '|'))
+        {
+            size_t pos = productData.find(',');
+            string productID = productData.substr(0, pos);
+            int quantity = stoi(productData.substr(pos + 1));
+            order.addProduct(productID, quantity);
         }
         return order;
     }
 };
 
+int Order::orderCounter = 1;
+
 // Warehouse Class
-class Warehouse {
+class Warehouse
+{
 private:
     vector<Product> inventory;
     vector<Order> orders;
 
 public:
-    void addProduct(const Product &product) {
+    void addProduct(const Product &product)
+    {
         inventory.push_back(product);
     }
 
-    void addOrder() {
-        string orderID;
-        cout << "Enter Order ID: ";
-        cin >> orderID;
+    void addOrder()
+    {
+        // Generate a new order ID
+        string orderID = "O" + to_string(orders.size() + 1);
 
-        Order newOrder(orderID);
+        time_t now = time(0);
+        Order newOrder(orderID, now);
         string productID;
+        int quantity;
         char addMore;
 
-        do {
+        do
+        {
             cout << "Enter Product ID to add to order: ";
             cin >> productID;
+            cout << "Enter Quantity: ";
+            cin >> quantity;
 
             // Find the product in the inventory
-            auto it = find_if(inventory.begin(), inventory.end(), [&](const Product &product) {
-                return product.getProductID() == productID;
-            });
+            auto it = find_if(inventory.begin(), inventory.end(), [&](Product &product)
+                              { return product.getProductID() == productID; });
 
-            if (it != inventory.end()) {
-                newOrder.addProductID(productID);
-                cout << "Product " << productID << " added to the order.\n";
-            } else {
+            if (it != inventory.end())
+            {
+                if (it->getQuantity() >= quantity)
+                {
+                    newOrder.addProduct(productID, quantity);
+                    it->updateQuantity(it->getQuantity() - quantity);
+                    cout << "Product " << productID << " added to the order.\n";
+                }
+                else
+                {
+                    cout << "Insufficient quantity in inventory.\n";
+                }
+            }
+            else
+            {
                 cout << "Product ID " << productID << " not found in inventory.\n";
             }
 
@@ -172,63 +231,64 @@ public:
         cout << "Order " << orderID << " added successfully!\n";
     }
 
-    void viewInventory() const {
+    void viewInventory() const
+    {
         cout << "Inventory:" << endl;
-        for (const auto &product : inventory) {
+        for (const auto &product : inventory)
+        {
             product.displayProduct();
         }
     }
 
-    void viewOrders() const {
+    void viewOrders() const
+    {
         cout << "Orders:" << endl;
-        for (const auto &order : orders) {
+        for (const auto &order : orders)
+        {
             order.displayOrder(inventory);
         }
     }
 
-    void addOrder(const Order &order) {
-        orders.push_back(order);
-    }
-
-    void viewOrders() const {
-        cout << "Orders:" << endl;
-        for (const auto &order : orders) {
-            order.displayOrder(inventory);
-        }
-    }
-
-    void searchProduct(const string &searchTerm) {
+    void searchProduct(const string &searchTerm)
+    {
         cout << "Search Results for: " << searchTerm << endl;
         bool found = false;
-        for (const auto &product : inventory) {
-            if (product.getProductID() == searchTerm || product.getName() == searchTerm) {
+        for (const auto &product : inventory)
+        {
+            if (product.getProductID() == searchTerm || product.getName() == searchTerm)
+            {
                 product.displayProduct();
                 found = true;
             }
         }
-        if (!found) {
+        if (!found)
+        {
             cout << "No products found matching: " << searchTerm << endl;
         }
     }
 
-    void deleteProduct(const string &id) {
-        auto it = remove_if(inventory.begin(), inventory.end(), [&](const Product &product) {
-            return product.getProductID() == id;
-        });
-        if (it != inventory.end()) {
+    void deleteProduct(const string &id)
+    {
+        auto it = remove_if(inventory.begin(), inventory.end(), [&](const Product &product)
+                            { return product.getProductID() == id; });
+        if (it != inventory.end())
+        {
             inventory.erase(it, inventory.end());
             cout << "Product deleted successfully!" << endl;
-        } else {
+        }
+        else
+        {
             cout << "Product ID not found!" << endl;
         }
     }
 
-    void updateProduct(const string &id) {
-        auto it = find_if(inventory.begin(), inventory.end(), [&](Product &product) {
-            return product.getProductID() == id;
-        });
+    void updateProduct(const string &id)
+    {
+        auto it = find_if(inventory.begin(), inventory.end(), [&](Product &product)
+                          { return product.getProductID() == id; });
 
-        if (it != inventory.end()) {
+        if (it != inventory.end())
+        {
             int choice;
             cout << "1. Update Name\n";
             cout << "2. Update Quantity\n";
@@ -236,8 +296,10 @@ public:
             cout << "Enter the attribute to update: ";
             cin >> choice;
 
-            switch (choice) {
-            case 1: {
+            switch (choice)
+            {
+            case 1:
+            {
                 string newName;
                 cout << "Enter new name: ";
                 cin >> newName;
@@ -245,7 +307,8 @@ public:
                 cout << "Product name updated successfully.\n";
                 break;
             }
-            case 2: {
+            case 2:
+            {
                 int newQty;
                 cout << "Enter new quantity: ";
                 cin >> newQty;
@@ -253,7 +316,8 @@ public:
                 cout << "Product quantity updated successfully.\n";
                 break;
             }
-            case 3: {
+            case 3:
+            {
                 double newPrice;
                 cout << "Enter new price: ";
                 cin >> newPrice;
@@ -264,153 +328,626 @@ public:
             default:
                 cout << "Invalid choice.\n";
             }
-        } else {
+        }
+        else
+        {
             cout << "Product ID not found!\n";
         }
     }
 
-    double calculateTotalSales() const {
-        double totalSales = 0.0;
-        for (const auto &order : orders) {
-            for (const auto &productID : order.getOrderProductIDs()) {
-                auto it = find_if(inventory.begin(), inventory.end(), [&](const Product &p) {
-                    return p.getProductID() == productID;
-                });
-                if (it != inventory.end()) {
-                    totalSales += it->getPrice() * it->getQuantity();
-                }
-            }
-        }
-        return totalSales;
-    }
-
-void saveInventoryToFile(const string &filename) const {
+    void saveInventoryToFile(const string &filename) const
+    {
         ofstream outFile(filename);
-        for (const auto &product : inventory) {
+        for (const auto &product : inventory)
+        {
             outFile << product.toFileFormat() << endl;
         }
         outFile.close();
     }
 
-    void loadInventoryFromFile(const string &filename) {
+    void loadInventoryFromFile(const string &filename)
+    {
         ifstream inFile(filename);
         string line;
-        while (getline(inFile, line)) {
+        while (getline(inFile, line))
+        {
             inventory.push_back(Product::fromFileFormat(line));
         }
         inFile.close();
     }
 
-    void saveOrdersToFile(const string &filename) const {
+    void saveOrdersToFile(const string &filename) const
+    {
         ofstream outFile(filename);
-        for (const auto &order : orders) {
+        for (const auto &order : orders)
+        {
             outFile << order.toFileFormat() << endl;
         }
         outFile.close();
     }
 
-    void loadOrdersFromFile(const string &filename) {
+    void loadOrdersFromFile(const string &filename)
+    {
         ifstream inFile(filename);
         string line;
-        while (getline(inFile, line)) {
+        while (getline(inFile, line))
+        {
             orders.push_back(Order::fromFileFormat(line));
         }
         inFile.close();
     }
 };
 
+class SalesReport
+{
+public:
+    void printBarChart(const string &timeFrame)
+    {
+        generateSalesReport();
+        // Sample implementation for reading orders from a file
+        vector<Order> filteredOrders = filterOrdersByTimeFrame(timeFrame);
+
+        // Process the filtered orders to gather sales data
+        unordered_map<string, int> salesData;
+        for (const auto &order : filteredOrders)
+        {
+            const auto &productIDs = order.getOrderProductIDs();
+            const auto &quantities = order.getQuantities();
+            for (size_t i = 0; i < productIDs.size(); ++i)
+            {
+                salesData[productIDs[i]] += quantities[i]; // Sum quantities for each product
+            }
+        }
+
+        // Find the maximum sales value for scaling the chart
+        int maxSales = 0;
+        for (const auto &data : salesData)
+        {
+            if (data.second > maxSales)
+            {
+                maxSales = data.second;
+            }
+        }
+
+        // Print the bar chart
+        cout << "Sales Report Bar Chart for " << timeFrame << ":" << endl;
+        for (const auto &data : salesData)
+        {
+            cout << setw(10) << left << data.first << " | ";
+            int barLength = static_cast<int>((data.second / static_cast<double>(maxSales)) * 50);
+            for (int i = 0; i < barLength; ++i)
+            {
+                cout << "#";
+            }
+            cout << " " << data.second << endl;
+        }
+
+        // Prompt the user to press any key to continue
+    }
+
+    vector<Order> filterOrdersByTimeFrame(const string &timeFrame)
+    {
+        vector<Order> filteredOrders;
+        ifstream ordersFile("orders.txt");
+        string line;
+        time_t now = time(0);
+        tm *ltm = localtime(&now);
+
+        while (getline(ordersFile, line))
+        {
+            Order order = Order::fromFileFormat(line);
+            time_t orderDate = order.getOrderDate();
+
+            // Calculate the time frames
+            if (timeFrame == "last week")
+            {
+                tm lastWeek = *ltm;
+                lastWeek.tm_mday -= 7; // Move back 7 days
+                mktime(&lastWeek);     // Normalize the date
+                if (orderDate >= mktime(&lastWeek) && orderDate <= now)
+                {
+                    filteredOrders.push_back(order);
+                }
+            }
+            else if (timeFrame == "last month")
+            {
+                tm lastMonth = *ltm;
+                lastMonth.tm_mon -= 1; // Move back 1 month
+                mktime(&lastMonth);    // Normalize the date
+                if (orderDate >= mktime(&lastMonth) && orderDate <= now)
+                {
+                    filteredOrders.push_back(order);
+                }
+            }
+            else if (timeFrame == "last year")
+            {
+                tm lastYear = *ltm;
+                lastYear.tm_year -= 1; // Move back 1 year
+                mktime(&lastYear);     // Normalize the date
+                if (orderDate >= mktime(&lastYear) && orderDate <= now)
+                {
+                    filteredOrders.push_back(order);
+                }
+            }
+        }
+        ordersFile.close();
+        return filteredOrders;
+    }
+
+    void readInvoiceData()
+    {
+        // Placeholder: Implement logic to read invoice data from file or database
+        cout << "Reading invoice data..." << endl;
+    }
+
+    void readStockData()
+    {
+        // Placeholder: Implement logic to read stock data from file or database
+        cout << "Reading stock data..." << endl;
+    }
+
+    void generateSalesReport()
+    {
+        // Placeholder: Implement logic to generate a full sales report
+        cout << "Generating sales report..." << endl;
+    }
+
+    void profitAnalysis()
+    {
+        // Placeholder: Implement logic for profit analysis based on sales and expenses
+        cout << "Performing profit analysis..." << endl;
+    }
+
+    void stockLevelAnalysis()
+    {
+        // Placeholder: Implement logic for analyzing current stock levels
+        cout << "Analyzing stock levels..." << endl;
+    }
+
+    void topSellingProducts()
+    {
+        // Placeholder: Implement logic to identify top-selling products based on sales
+        cout << "Identifying top-selling products..." << endl;
+    }
+
+    void unsoldStockAnalysis()
+    {
+        // Placeholder: Implement logic to analyze unsold stock and identify slow-moving products
+        cout << "Analyzing unsold stock..." << endl;
+    }
+
+    void printHeader()
+    {
+        // Placeholder: Implement header printing for reports
+        cout << "===========================" << endl;
+        cout << "         Sales Report       " << endl;
+        cout << "===========================" << endl;
+    }
+
+    void printFooter()
+    {
+        // Placeholder: Implement footer printing for reports
+        cout << "===========================" << endl;
+        cout << "         End of Report      " << endl;
+        cout << "===========================" << endl;
+    }
+
+private:
+    // Helper function to extract year and week from order ID (e.g., "2023-45")
+    pair<int, int> extractYearAndWeekFromOrderID(const string &orderID)
+    {
+        // Example implementation assuming orderID format is "YYYY-WW"
+        int year = stoi(orderID.substr(0, 4));
+        int week = stoi(orderID.substr(5, 2));
+        return make_pair(year, week);
+    }
+};
+
+// Admin Registration
+bool registerAdmin()
+{
+    string username, password;
+    cout << "\tRegister Admin" << endl;
+    cout << "\tUsername: ";
+    cin.ignore();
+    getline(cin, username);
+    username = trim(username);
+    cout << "\tPassword: ";
+    getline(cin, password);
+    password = trim(password);
+
+    string hashedPassword = hashPassword(password);
+
+    ofstream outFile("admin_credentials.csv", ios::app);
+    if (!outFile.is_open())
+    {
+        cout << "\tError: Unable to open admin credentials file." << endl;
+        return false;
+    }
+
+    outFile << username << "," << hashedPassword << endl;
+    outFile.close();
+
+    cout << "\tAdmin registered successfully!" << endl;
+    return true;
+}
+
+// Admin Login
+// Admin Login
+bool loginAdmin()
+{
+    string username, password;
+    int failedAttempts = 0;
+    const int MAX_FAILED_ATTEMPTS = 3;
+    time_t lockTime = 0;
+    const int LOCK_TIME_MINUTES = 15;
+
+    cout << "\tLogin Admin" << endl;
+    cout << "\tUsername: ";
+    cin.ignore();
+    getline(cin, username);
+    username = trim(username);
+
+    cout << "\tPassword: ";
+    getline(cin, password);
+    password = trim(password);
+
+    string hashedPassword = hashPassword(password);
+
+    ifstream inFile("admin_credentials.csv");
+    if (!inFile.is_open())
+    {
+        cout << "\tError: Unable to open admin credentials file." << endl;
+        return false;
+    }
+
+    string line, storedUsername, storedPassword;
+    while (getline(inFile, line))
+    {
+        stringstream ss(line);
+        getline(ss, storedUsername, ',');
+        getline(ss, storedPassword, ',');
+
+        if (storedUsername == username && storedPassword == hashedPassword)
+        {
+            cout << "\tAdmin logged in successfully!" << endl;
+            inFile.close();
+            return true;
+        }
+    }
+    inFile.close();
+
+    if (failedAttempts < MAX_FAILED_ATTEMPTS)
+    {
+        failedAttempts++;
+        cout << "\tInvalid username or password. You have " << MAX_FAILED_ATTEMPTS - failedAttempts << " attempts left." << endl;
+    }
+    else
+    {
+        time_t currentTime = time(0);
+        if (currentTime < lockTime)
+        {
+            cout << "\tAccount locked. Please wait " << (LOCK_TIME_MINUTES - (difftime(currentTime, lockTime) / 60)) << " minutes before trying again." << endl;
+        }
+        else
+        {
+            lockTime = currentTime + (LOCK_TIME_MINUTES * 60);
+            cout << "\tAccount locked for " << LOCK_TIME_MINUTES << " minutes due to too many failed login attempts." << endl;
+        }
+    }
+
+    return false;
+}
+
+// Customer Registration
+bool registerCustomer()
+{
+    string username, password;
+    cout << "\tRegister Customer" << endl;
+    cout << "\tUsername: ";
+    cin.ignore();
+    getline(cin, username);
+    username = trim(username);
+
+    cout << "\tPassword: ";
+    getline(cin, password);
+    password = trim(password);
+
+    string hashedPassword = hashPassword(password);
+
+    ofstream outFile("customer_credentials.csv", ios::app);
+    if (!outFile.is_open())
+    {
+        cout << "\tError: Unable to open customer credentials file." << endl;
+        return false;
+    }
+
+    outFile << username << "," << hashedPassword << endl;
+    outFile.close();
+
+    cout << "\tCustomer registered successfully!" << endl;
+    return true;
+}
+
+// Customer Login
+bool loginCustomer()
+{
+    string username, password;
+    int failedAttempts = 0;
+    const int MAX_FAILED_ATTEMPTS = 3;
+    time_t lockTime = 0;
+    const int LOCK_TIME_MINUTES = 15;
+
+    cout << "\tLogin Customer" << endl;
+    cout << "\tUsername: ";
+    cin.ignore();
+    getline(cin, username);
+    username = trim(username);
+
+    cout << "\tPassword: ";
+    getline(cin, password);
+    password = trim(password);
+
+    string hashedPassword = hashPassword(password);
+
+    ifstream inFile("customer_credentials.csv");
+    if (!inFile.is_open())
+    {
+        cout << "\tError: Unable to open customer credentials file." << endl;
+        return false;
+    }
+
+    string line, storedUsername, storedPassword;
+    while (getline(inFile, line))
+    {
+        stringstream ss(line);
+        getline(ss, storedUsername, ',');
+        getline(ss, storedPassword, ',');
+
+        // Check if the account is locked
+        if (failedAttempts >= MAX_FAILED_ATTEMPTS)
+        {
+            time_t currentTime = time(0);
+            if (currentTime < lockTime)
+            {
+                cout << "\tAccount locked. Please wait " << (LOCK_TIME_MINUTES - (difftime(currentTime, lockTime) / 60)) << " minutes before trying again." << endl;
+                inFile.close();
+                return false;
+            }
+            else
+            {
+                // Reset failed attempts after lock time
+                failedAttempts = 0;
+            }
+        }
+
+        // Validate username and password
+        if (storedUsername == username && storedPassword == hashedPassword)
+        {
+            cout << "\tCustomer logged in successfully!" << endl;
+            inFile.close();
+            return true;
+        }
+    }
+    inFile.close();
+
+    failedAttempts++;
+    cout << "\tInvalid username or password. You have " << (MAX_FAILED_ATTEMPTS - failedAttempts) << " attempts left." << endl;
+
+    // Lock the account if max attempts are reached
+    if (failedAttempts >= MAX_FAILED_ATTEMPTS)
+    {
+        lockTime = time(0) + (LOCK_TIME_MINUTES * 60); // Set the lock time
+        cout << "\tAccount locked for " << LOCK_TIME_MINUTES << " minutes due to too many failed login attempts." << endl;
+    }
+
+    return false;
+}
+
+// Main Menu Functions
+void displayHeader(const string &title)
+{
+    system("cls");
+    cout << "\n\t************************************************************\n";
+    cout << "\t*                                                          *\n";
+    cout << "\t*              " << title << "                             *\n";
+    cout << "\t*                                                          *\n";
+    cout << "\t************************************************************\n\n";
+}
+
+void salesReportMenu()
+{
+    int choice;
+    do
+    {
+        displayHeader("Sales Report Menu");
+        cout << "1. Last Week\n";
+        cout << "2. Last Month\n";
+        cout << "3. Last Year\n";
+        cout << "4. Back to Admin Menu\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        SalesReport salesReport;
+        switch (choice)
+        {
+        case 1:
+            salesReport.printBarChart("last week");
+            system("pause");
+            break;
+        case 2:
+            salesReport.printBarChart("last month");
+            system("pause");
+            break;
+        case 3:
+            salesReport.printBarChart("last year");
+            system("pause");
+            break;
+        case 4:
+            cout << "Returning to Admin Menu..." << endl;
+            break;
+        default:
+            cout << "Invalid choice. Please try again." << endl;
+        }
+    } while (choice != 4);
+}
+
+// Admin menu
+void adminMenu(Warehouse &warehouse)
+{
+    int choice;
+    do
+    {
+        displayHeader("Admin Menu");
+        cout << "1. Add Product\n";
+        cout << "2. Update Product\n";
+        cout << "3. Remove Product\n";
+        cout << "4. View Inventory\n";
+        cout << "5. View Orders\n";
+        cout << "6. Generate Sales Report\n"; // New option for sales report
+        cout << "7. Logout\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        switch (choice)
+        {
+        case 1:
+        {
+            string id, name;
+            int qty;
+            double price;
+            cout << "Enter Product ID: ";
+            cin >> id;
+            cout << "Enter Name: ";
+            cin >> name;
+            cout << "Enter Quantity: ";
+            cin >> qty;
+            cout << "Enter Price: ";
+            cin >> price;
+            warehouse.addProduct(Product(id, name, qty, price));
+            cout << "Product added successfully!" << endl;
+            break;
+        }
+        case 2:
+        {
+            string id;
+            cout << "Enter Product ID to Update: ";
+            cin >> id;
+            warehouse.updateProduct(id);
+            break;
+        }
+        case 3:
+        {
+            string id;
+            cout << "Enter Product ID to Remove: ";
+            cin >> id;
+            warehouse.deleteProduct(id);
+            break;
+        }
+        case 4:
+            warehouse.viewInventory();
+            system("pause");
+            break;
+        case 5:
+            warehouse.viewOrders();
+            system("pause");
+            break;
+        case 6:
+        {
+            salesReportMenu();
+            break;
+        }
+        case 7:
+            cout << "Logging out..." << endl;
+            break;
+        default:
+            cout << "Invalid choice. Please try again." << endl;
+        }
+    } while (choice != 7);
+}
+
+void customerMenu(Warehouse &warehouse)
+{
+    int choice;
+    do
+    {
+        displayHeader("Customer Menu");
+        cout << "1. View Inventory\n";
+        cout << "2. Place Order\n";
+        cout << "3. Logout\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        switch (choice)
+        {
+        case 1:
+            warehouse.viewInventory();
+            system("pause");
+            break;
+        case 2:
+        {
+            warehouse.addOrder();
+            break;
+        }
+        case 3:
+            cout << "Logging out..." << endl;
+            break;
+        default:
+            cout << "Invalid choice. Please try again." << endl;
+        }
+    } while (choice != 3);
+}
+
 // Main Function
-int main() {
+int main()
+{
     Warehouse warehouse;
     warehouse.loadInventoryFromFile("inventory.txt");
     warehouse.loadOrdersFromFile("orders.txt");
 
-    string role = login();
-    if (role.empty()) {
-        return 0;
-    }
-
     int choice;
-    do {
-        cout << "\nWarehouse Management System\n";
-        cout << "1. View Inventory\n";
-        cout << "2. Search Product\n";
-        cout << "3. View Orders\n";
-        cout << "4. Add Order\n";   // New option for adding an order
-        if (role == "admin") {
-            cout << "5. Add Product to Inventory\n";
-            cout << "6. Delete Product\n";
-            cout << "7. Calculate Total Sales\n";
-            cout << "8. Update Product\n";
-        }
-        cout << "0. Exit\n";
+    do
+    {
+        displayHeader("Warehouse Management System");
+        cout << "1. Admin Registration\n";
+        cout << "2. Admin Login\n";
+        cout << "3. Customer Registration\n";
+        cout << "4. Customer Login\n";
+        cout << "5. Exit\n";
         cout << "Enter your choice: ";
         cin >> choice;
 
-        switch (choice) {
+        switch (choice)
+        {
         case 1:
-            warehouse.viewInventory();
+            registerAdmin();
+            system("pause");
             break;
-        case 2: {
-            string searchTerm;
-            cout << "Enter Product ID or Name to search: ";
-            cin >> searchTerm;
-            warehouse.searchProduct(searchTerm);
+        case 2:
+            if (loginAdmin())
+            {
+                adminMenu(warehouse);
+            }
             break;
-        }
         case 3:
-            warehouse.viewOrders();
+            registerCustomer();
+            system("pause");
             break;
         case 4:
-            warehouse.addOrder();  // Calling the new addOrder function
+            if (loginCustomer())
+            {
+                customerMenu(warehouse);
+            }
             break;
         case 5:
-            if (role == "admin") {
-                string id, name;
-                int qty;
-                double price;
-                cout << "Enter Product ID: ";
-                cin >> id;
-                cout << "Enter Name: ";
-                cin >> name;
-                cout << "Enter Quantity: ";
-                cin >> qty;
-                cout << "Enter Price: ";
-                cin >> price;
-                warehouse.addProduct(Product(id, name, qty, price));
-                cout << "Product added successfully!\n";
-            }
-            break;
-        case 6:
-            if (role == "admin") {
-                string id;
-                cout << "Enter Product ID to delete: ";
-                cin >> id;
-                warehouse.deleteProduct(id);
-            }
-            break;
-        case 7:
-            if (role == "admin") {
-                cout << "Total Sales: $" << warehouse.calculateTotalSales() << endl;
-            }
-            break;
-        case 8:
-            if (role == "admin") {
-                string id;
-                cout << "Enter Product ID to update: ";
-                cin >> id;
-                warehouse.updateProduct(id);
-            }
-            break;
-        case 0:
             warehouse.saveInventoryToFile("inventory.txt");
             warehouse.saveOrdersToFile("orders.txt");
-            cout << "Exiting...\n";
+            cout << "Exiting the program. Thank you!" << endl;
             break;
         default:
-            cout << "Invalid choice! Please try again.\n";
+            cout << "Invalid choice. Please try again." << endl;
         }
-    } while (choice != 0);
+    } while (choice != 5);
 
     return 0;
 }
