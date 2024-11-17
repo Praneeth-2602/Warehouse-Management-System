@@ -1,11 +1,11 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <fstream>
 #include <algorithm>
-#include <unordered_map>
+#include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 using namespace std;
 
@@ -37,29 +37,51 @@ string hashPassword(const string &password)
 // Product Class
 class Product
 {
-private:
+  private:
     string productID;
     string name;
     int quantity;
     double price;
 
-public:
-    Product(string id, string name, int qty, double price)
-        : productID(id), name(name), quantity(qty), price(price) {}
+  public:
+    Product(string id, string name, int qty, double price) : productID(id), name(name), quantity(qty), price(price)
+    {
+    }
 
-    string getProductID() const { return productID; }
-    string getName() const { return name; }
-    int getQuantity() const { return quantity; }
-    double getPrice() const { return price; }
+    string getProductID() const
+    {
+        return productID;
+    }
+    string getName() const
+    {
+        return name;
+    }
+    int getQuantity() const
+    {
+        return quantity;
+    }
+    double getPrice() const
+    {
+        return price;
+    }
 
-    void updateQuantity(int qty) { quantity = qty; }
-    void updatePrice(double newPrice) { price = newPrice; }
-    void updateName(string newName) { name = newName; }
+    void updateQuantity(int qty)
+    {
+        quantity = qty;
+    }
+    void updatePrice(double newPrice)
+    {
+        price = newPrice;
+    }
+    void updateName(string newName)
+    {
+        name = newName;
+    }
 
     void displayProduct() const
     {
-        cout << "ID: " << productID << ", Name: " << name
-             << ", Quantity: " << quantity << ", Price: $" << price << endl;
+        cout << "ID: " << productID << ", Name: " << name << ", Quantity: " << quantity << ", Price: $" << price
+             << endl;
     }
 
     string toFileFormat() const
@@ -86,54 +108,71 @@ public:
 // Order Class
 class Order
 {
-private:
-    string orderID;                   // Unique identifier for the order
-    vector<string> orderedProductIDs; // List of product IDs in the order
-    vector<int> quantities;           // List of quantities for each product
-    time_t orderDate;                 // Date of the order
-    static int orderCounter;          // Counter for order IDs
+  private:
+    string orderID;                     // Unique identifier for the order
+    vector<string> orderedProductNames; // List of product names in the order
+    vector<int> quantities;             // List of quantities for each product
+    time_t orderDate;                   // Date of the order
+    static int orderCounter;            // Counter for order IDs
 
-public:
-    Order(string id, time_t date) : orderID(id), orderDate(date) {}
-
-    void addProduct(const string &productID, int quantity)
+  public:
+    Order(string id, time_t date) : orderID(id), orderDate(date)
     {
-        orderedProductIDs.push_back(productID);
+    }
+
+    void addProduct(const string &productName, int quantity)
+    {
+        orderedProductNames.push_back(productName);
         quantities.push_back(quantity);
     }
 
-    vector<string> getOrderProductIDs() const { return orderedProductIDs; }
-    vector<int> getQuantities() const { return quantities; }
-    string getOrderID() const { return orderID; }
-    time_t getOrderDate() const { return orderDate; }
-
-    void displayOrder(const vector<Product> &inventory) const
+    vector<string> getOrderProductNames() const
     {
-        cout << "Order ID: " << orderID << ", Date: " << ctime(&orderDate);
-        for (size_t i = 0; i < orderedProductIDs.size(); ++i)
-        {
-            auto it = find_if(inventory.begin(), inventory.end(), [&](const Product &p)
-                              { return p.getProductID() == orderedProductIDs[i]; });
-            if (it != inventory.end())
-            {
-                cout << "Product ID: " << orderedProductIDs[i] << ", Quantity: " << quantities[i] << endl;
-                it->displayProduct();
-            }
-            else
-            {
-                cout << "Product ID " << orderedProductIDs[i] << " not found in inventory." << endl;
-            }
-        }
+        return orderedProductNames;
+    }
+    vector<int> getQuantities() const
+    {
+        return quantities;
+    }
+    string getOrderID() const
+    {
+        return orderID;
+    }
+    time_t getOrderDate() const
+    {
+        return orderDate;
     }
 
     string toFileFormat() const
     {
         string result = orderID + "," + to_string(orderDate);
-        for (size_t i = 0; i < orderedProductIDs.size(); ++i)
+        for (size_t i = 0; i < orderedProductNames.size(); ++i)
         {
-            result += "|" + orderedProductIDs[i] + "," + to_string(quantities[i]);
+            result += "|" + orderedProductNames[i] + "," + to_string(quantities[i]);
         }
         return result;
+    }
+
+    void displayOrder(const vector<Product> &inventory) const
+    {
+        cout << "Order ID: " << orderID << "\n";
+        cout << "Order Date: " << ctime(&orderDate);
+        cout << "Products:\n";
+        for (size_t i = 0; i < orderedProductNames.size(); ++i)
+        {
+            auto it = find_if(inventory.begin(), inventory.end(),
+                              [&](const Product &product) { return product.getName() == orderedProductNames[i]; });
+
+            if (it != inventory.end())
+            {
+                cout << "  - " << orderedProductNames[i] << " (Quantity: " << quantities[i] << ", Price: $"
+                     << it->getPrice() << ")\n";
+            }
+            else
+            {
+                cout << "  - " << orderedProductNames[i] << " (Quantity: " << quantities[i] << ", Price: N/A)\n";
+            }
+        }
     }
 
     static Order fromFileFormat(const string &line)
@@ -159,9 +198,9 @@ public:
         while (getline(ss, productData, '|'))
         {
             size_t pos = productData.find(',');
-            string productID = productData.substr(0, pos);
+            string productName = productData.substr(0, pos);
             int quantity = stoi(productData.substr(pos + 1));
-            order.addProduct(productID, quantity);
+            order.addProduct(productName, quantity); // Ensure product names and quantities are added
         }
         return order;
     }
@@ -172,115 +211,124 @@ int Order::orderCounter = 1;
 // Warehouse Class
 class Warehouse
 {
-private:
+  private:
     vector<Product> inventory;
     vector<Order> orders;
 
-public:
+  public:
     void addProduct(const Product &product)
     {
         inventory.push_back(product);
     }
 
-    void addOrder() {
-    // Generate a new order ID
-    string orderID = "O" + to_string(orders.size() + 1);
+    void addOrder()
+    {
+        // Generate a new order ID
+        string orderID = "O" + to_string(orders.size() + 1);
 
-    time_t now = time(0);
-    Order newOrder(orderID, now);
-    string productName;
-    int quantity;
-    char addMore;
+        time_t now = time(0);
+        Order newOrder(orderID, now);
+        string productName;
+        int quantity;
+        char addMore;
 
-    cout << "Adding a new order: " << orderID << "\n";
-    cout << "Order Date and Time: " << ctime(&now);
+        cout << "Adding a new order: " << orderID << "\n";
+        cout << "Order Date and Time: " << ctime(&now);
 
-    do {
-        cout << "Enter Product Name to add to order: ";
-        cin.ignore(); // Clear the buffer
-        getline(cin, productName);
-        cout << "Enter Quantity: ";
-        cin >> quantity;
+        do
+        {
+            cout << "Enter Product Name to add to order: ";
+            cin.ignore(); // Clear the buffer
+            getline(cin, productName);
+            cout << "Enter Quantity: ";
+            cin >> quantity;
 
-        // Find the product in the inventory by name
-        auto it = find_if(inventory.begin(), inventory.end(), [&](Product &product) {
-            return product.getName() == productName;
-        });
+            // Find the product in the inventory by name
+            auto it = find_if(inventory.begin(), inventory.end(),
+                              [&](Product &product) { return product.getName() == productName; });
 
-        if (it != inventory.end()) {
-            if (it->getQuantity() >= quantity) {
-                newOrder.addProduct(it->getProductID(), quantity);
-                it->updateQuantity(it->getQuantity() - quantity);
-                cout << "Product \"" << productName << "\" found and added to the order successfully.\n";
-            } else {
-                cout << "Insufficient quantity in inventory.\n";
+            if (it != inventory.end())
+            {
+                if (it->getQuantity() >= quantity)
+                {
+                    newOrder.addProduct(it->getName(), quantity); // Use product name
+                    it->updateQuantity(it->getQuantity() - quantity);
+                    cout << "Product \"" << productName << "\" found and added to the order successfully.\n";
+                }
+                else
+                {
+                    cout << "Insufficient quantity in inventory.\n";
+                }
             }
-        } else {
-            cout << "Product \"" << productName << "\" not found in inventory.\n";
-        }
-
-        cout << "Add more products to the order? (y/n): ";
-        cin >> addMore;
-
-    } while (addMore == 'y' || addMore == 'Y');
-
-    // Add the completed order to the order list
-    orders.push_back(newOrder);
-
-    // Generate the order details in the format O1,1731520409|250,250 and save it to orders.txt
-    ofstream ordersFile("orders.txt", ios::app);
-    if (ordersFile.is_open()) {
-        stringstream orderDetails;
-
-        orderDetails << orderID << "," << newOrder.getOrderDate() << "|";
-
-        // Add product details in the format ProductID,Quantity (separated by commas)
-        const auto& productIDs = newOrder.getOrderProductIDs();
-        const auto& quantities = newOrder.getQuantities();
-        for (size_t i = 0; i < productIDs.size(); ++i) {
-            orderDetails << productIDs[i] << "," << quantities[i] << ",";
-        }
-
-        string orderData = orderDetails.str();
-        orderData.pop_back(); // Remove the trailing comma
-        ordersFile << orderData << endl;
-        ordersFile.close();
-
-        // Display the structured invoice
-        cout << "\n===================== INVOICE =====================\n";
-        cout << "Order ID: " << orderID << "\n";
-        cout << "Date: " << ctime(&now);
-        cout << "---------------------------------------------------\n";
-        cout << "Product ID   Product Name       Quantity     Price\n";
-        cout << "---------------------------------------------------\n";
-
-        double totalCost = 0.0;
-        for (size_t i = 0; i < newOrder.getOrderProductIDs().size(); ++i) {
-            auto it = find_if(inventory.begin(), inventory.end(), [&](const Product& product) {
-                return product.getProductID() == newOrder.getOrderProductIDs()[i];
-            });
-
-            if (it != inventory.end()) {
-                double itemCost = it->getPrice() * newOrder.getQuantities()[i];
-                totalCost += itemCost;
-                cout << left << setw(12) << it->getProductID()
-                     << setw(18) << it->getName()
-                     << setw(12) << newOrder.getQuantities()[i]
-                     << fixed << setprecision(2) << itemCost << "\n";
+            else
+            {
+                cout << "Product \"" << productName << "\" not found in inventory.\n";
             }
+            cout << "Add more products to the order? (y/n): ";
+            cin >> addMore;
+
+        } while (addMore == 'y' || addMore == 'Y');
+
+        // Add the completed order to the order list
+        orders.push_back(newOrder);
+
+        // Generate the order details in the format O1,1731520409|ProductName,Quantity and save it to orders.txt
+        ofstream ordersFile("orders.txt", ios::app);
+        if (ordersFile.is_open())
+        {
+            stringstream orderDetails;
+
+            orderDetails << orderID << "," << newOrder.getOrderDate() << "|";
+
+            // Add product details in the format ProductName,Quantity (separated by commas)
+            const auto &productNames = newOrder.getOrderProductNames();
+            const auto &quantities = newOrder.getQuantities();
+            for (size_t i = 0; i < productNames.size(); ++i)
+            {
+                orderDetails << productNames[i] << "," << quantities[i] << ",";
+            }
+
+            string orderData = orderDetails.str();
+            orderData.pop_back(); // Remove the trailing comma
+            ordersFile << orderData << endl;
+            ordersFile.close();
+
+            // Display the structured invoice
+            cout << "\n===================== INVOICE =====================\n";
+            cout << "Order ID: " << orderID << "\n";
+            cout << "Date: " << ctime(&now);
+            cout << "---------------------------------------------------\n";
+            cout << "Product Name       Quantity     Price\n";
+            cout << "---------------------------------------------------\n";
+
+            double totalCost = 0.0;
+            for (size_t i = 0; i < newOrder.getOrderProductNames().size(); ++i)
+            {
+                auto it = find_if(inventory.begin(), inventory.end(), [&](const Product &product) {
+                    return product.getName() == newOrder.getOrderProductNames()[i];
+                });
+
+                if (it != inventory.end())
+                {
+                    double itemCost = it->getPrice() * newOrder.getQuantities()[i];
+                    totalCost += itemCost;
+                    cout << left << setw(18) << it->getName() << setw(12) << newOrder.getQuantities()[i] << fixed
+                         << setprecision(2) << itemCost << "\n";
+                }
+            }
+
+            cout << "---------------------------------------------------\n";
+            cout << right << setw(44) << "Total Cost: " << fixed << setprecision(2) << totalCost << "\n";
+            cout << "===================================================\n";
+        }
+        else
+        {
+            cout << "Unable to open orders.txt for writing.\n";
         }
 
-        cout << "---------------------------------------------------\n";
-        cout << right << setw(44) << "Total Cost: " << fixed << setprecision(2) << totalCost << "\n";
-        cout << "===================================================\n";
-    } else {
-        cout << "Unable to open orders.txt for writing.\n";
+        cout << "Order " << orderID << " added successfully!\n";
+        system("pause"); // Pause after generating the invoice
     }
-
-    cout << "Order " << orderID << " added successfully!\n";
-    system("pause"); // Pause after generating the invoice
-}
-
 
     void viewInventory() const
     {
@@ -323,8 +371,8 @@ public:
 
     void deleteProduct(const string &id)
     {
-        auto it = remove_if(inventory.begin(), inventory.end(), [&](const Product &product)
-                            { return product.getProductID() == id; });
+        auto it = remove_if(inventory.begin(), inventory.end(),
+                            [&](const Product &product) { return product.getProductID() == id; });
         if (it != inventory.end())
         {
             inventory.erase(it, inventory.end());
@@ -339,8 +387,8 @@ public:
 
     void updateProduct(const string &id)
     {
-        auto it = find_if(inventory.begin(), inventory.end(), [&](Product &product)
-                          { return product.getProductID() == id; });
+        auto it =
+            find_if(inventory.begin(), inventory.end(), [&](Product &product) { return product.getProductID() == id; });
 
         if (it != inventory.end())
         {
@@ -353,8 +401,7 @@ public:
 
             switch (choice)
             {
-            case 1:
-            {
+            case 1: {
                 string newName;
                 cout << "Enter new name: ";
                 cin >> newName;
@@ -362,8 +409,7 @@ public:
                 cout << "Product name updated successfully.\n";
                 break;
             }
-            case 2:
-            {
+            case 2: {
                 int newQty;
                 cout << "Enter new quantity: ";
                 cin >> newQty;
@@ -371,8 +417,7 @@ public:
                 cout << "Product quantity updated successfully.\n";
                 break;
             }
-            case 3:
-            {
+            case 3: {
                 double newPrice;
                 cout << "Enter new price: ";
                 cin >> newPrice;
@@ -436,26 +481,28 @@ public:
 
 class SalesReport
 {
-public:
-    void printBarChart(const string &timeFrame)
+  public:
+    void printSalesReport(const string &timeFrame)
     {
         generateSalesReport();
-        // Sample implementation for reading orders from a file
         vector<Order> filteredOrders = filterOrdersByTimeFrame(timeFrame);
 
-        // Process the filtered orders to gather sales data
-        unordered_map<string, int> salesData;
-        for (const auto &order : filteredOrders)
+        if (filteredOrders.empty())
         {
-            const auto &productIDs = order.getOrderProductIDs();
-            const auto &quantities = order.getQuantities();
-            for (size_t i = 0; i < productIDs.size(); ++i)
-            {
-                salesData[productIDs[i]] += quantities[i]; // Sum quantities for each product
-            }
+            cout << "No orders found for the specified time frame." << endl;
+            return;
         }
 
-        // Find the maximum sales value for scaling the chart
+        unordered_map<string, int> salesData = aggregateSalesData(filteredOrders);
+        printBarChart(salesData);
+        printSalesSummary(salesData);
+        printTopSellingProducts(salesData);
+        printAverageSales(filteredOrders.size());
+    }
+
+  private:
+    void printBarChart(const unordered_map<string, int> &salesData)
+    {
         int maxSales = 0;
         for (const auto &data : salesData)
         {
@@ -465,19 +512,72 @@ public:
             }
         }
 
-        // Print the bar chart
-        cout << "Sales Report Bar Chart for " << timeFrame << ":" << endl;
+        cout << "\nSales Report Bar Chart:" << endl;
+        cout << "Product Name        | Sales Quantity" << endl;
+        cout << "-------------------------------------" << endl;
+
         for (const auto &data : salesData)
         {
-            cout << setw(10) << left << data.first << " | ";
-            int barLength = static_cast<int>((data.second / static_cast<double>(maxSales)) * 50);
+            cout << setw(20) << left << data.first << " | ";
+            int barLength =
+                static_cast<int>((data.second / static_cast<double>(maxSales)) * 50); // Scale to 50 characters
             for (int i = 0; i < barLength; ++i)
             {
-                cout << "#";
+                cout << "*";
             }
-            cout << " " << data.second << endl;
+            cout << " " << data.second << endl; // Print the sales quantity
         }
-        system("pause"); // Pause after displaying the sales report
+    }
+
+    unordered_map<string, int> aggregateSalesData(const vector<Order> &filteredOrders)
+    {
+        unordered_map<string, int> salesData;
+        for (const auto &order : filteredOrders)
+        {
+            const auto &productNames = order.getOrderProductNames();
+            const auto &quantities = order.getQuantities();
+            for (size_t i = 0; i < productNames.size(); ++i)
+            {
+                salesData[productNames[i]] += quantities[i]; // Sum quantities for each product
+            }
+        }
+        return salesData;
+    }
+
+    void printSalesSummary(const unordered_map<string, int> &salesData)
+    {
+        cout << "\nSales Summary:" << endl;
+        int totalSales = 0;
+        for (const auto &data : salesData)
+        {
+            totalSales += data.second;
+        }
+        cout << "Total Sales: " << totalSales << endl;
+    }
+
+    void printTopSellingProducts(const unordered_map<string, int> &salesData)
+    {
+        cout << "\nTop Selling Products:" << endl;
+        vector<pair<string, int>> sortedSales(salesData.begin(), salesData.end());
+        sort(sortedSales.begin(), sortedSales.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+
+        for (size_t i = 0; i < min(sortedSales.size(), size_t(5)); ++i)
+        {
+            cout << sortedSales[i].first << ": " << sortedSales[i].second << endl;
+        }
+    }
+
+    void printAverageSales(int totalOrders)
+    {
+        if (totalOrders > 0)
+        {
+            cout << "Average Sales per Order: " << fixed << setprecision(2) << (totalOrders / 1.0)
+                 << endl; // Placeholder for actual calculation
+        }
+        else
+        {
+            cout << "No orders to calculate average sales." << endl;
+        }
     }
 
     vector<Order> filterOrdersByTimeFrame(const string &timeFrame)
@@ -529,129 +629,9 @@ public:
         return filteredOrders;
     }
 
-    void generateInvoiceFromFile(const string& filename) {
-    string targetOrderID;
-    cout << "Enter the Order ID to generate the invoice: ";
-    cin >> targetOrderID;
-
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cerr << "Error: Could not open file " << filename << endl;
-        return;
-    }
-
-    string line;
-    bool orderFound = false;
-
-    while (getline(file, line)) {
-        size_t commaPos = line.find(',');
-        if (commaPos == string::npos) {
-            cerr << "Error: Invalid format in line: " << line << endl;
-            continue;
-        }
-
-        // Extract the OrderID from the line
-        string orderID = line.substr(0, commaPos);
-        if (orderID == targetOrderID) {
-            orderFound = true;
-
-            // Extract order details
-            string userID, itemPrice, quantity;
-            size_t pipePos = line.find('|');
-            if (pipePos == string::npos) {
-                cerr << "Error: Invalid format in line: " << line << endl;
-                break;
-            }
-
-            userID = line.substr(commaPos + 1, pipePos - commaPos - 1);
-
-            stringstream itemData(line.substr(pipePos + 1));
-            getline(itemData, itemPrice, ',');
-            getline(itemData, quantity);
-
-            double price = stod(itemPrice);
-            int qty = stoi(quantity);
-            double total = price * qty;
-
-            // Print the invoice
-            cout << "\n==================== Invoice ====================" << endl;
-            cout << "Order ID: " << orderID << endl;
-            cout << "User ID: " << userID << endl;
-            cout << "Price per Item: " << fixed << setprecision(2) << price << endl;
-            cout << "Quantity: " << qty << endl;
-            cout << "Total Amount: " << total << endl;
-            cout << "================================================" << endl;
-            break;
-        }
-    }
-
-    if (!orderFound) {
-        cout << "Order ID " << targetOrderID << " not found in the file." << endl;
-    }
-
-    file.close();
-}
-
-    void readStockData()
-    {
-        // Placeholder: Implement logic to read stock data from file or database
-        cout << "Reading stock data..." << endl;
-    }
-
     void generateSalesReport()
     {
-        // Placeholder: Implement logic to generate sales report
         cout << "Generating sales report..." << endl;
-    }
-
-    void profitAnalysis()
-    {
-        // Placeholder: Implement logic for profit analysis based on sales and expenses
-        cout << "Performing profit analysis..." << endl;
-    }
-
-    void stockLevelAnalysis()
-    {
-        // Placeholder: Implement logic for analyzing current stock levels
-        cout << "Analyzing stock levels..." << endl;
-    }
-
-    void topSellingProducts()
-    {
-        // Placeholder: Implement logic to identify top-selling products based on sales
-        cout << "Identifying top-selling products..." << endl;
-    }
-
-    void unsoldStockAnalysis()
-    {
-        // Placeholder: Implement logic to analyze unsold stock and identify slow-moving products
-        cout << "Analyzing unsold stock..." << endl;
-    }
-
-    void printHeader()
-    {
-        // Placeholder: Implement header printing for reports
-        cout << "===========================" << endl;
-        cout << "         Sales Report       " << endl;
-        cout << "===========================" << endl;
-    }
-
-    void printFooter()
-    {
-        // Placeholder: Implement footer printing for reports
-        cout << "===========================" << endl;
-        cout << "         End of Report      " << endl;
-        cout << "===========================" << endl;
-    }
-
-private:
-    // Helper function to extract year and week from order ID (e.g., "2023-45")
-    pair<int, int> extractYearAndWeekFromOrderID(const string &orderID)
-    {
-        // Example implementation assuming orderID format is "YYYY-WW"
-        int year = stoi(orderID.substr(0, 4));
-        int week = stoi(orderID.substr(5, 2));
-        return make_pair(year, week);
     }
 };
 
@@ -732,19 +712,22 @@ bool loginAdmin()
     if (failedAttempts < MAX_FAILED_ATTEMPTS)
     {
         failedAttempts++;
-        cout << "\tInvalid username or password. You have " << MAX_FAILED_ATTEMPTS - failedAttempts << " attempts left." << endl;
+        cout << "\tInvalid username or password. You have " << MAX_FAILED_ATTEMPTS - failedAttempts << " attempts left."
+             << endl;
     }
     else
     {
         time_t currentTime = time(0);
         if (currentTime < lockTime)
         {
-            cout << "\tAccount locked. Please wait " << (LOCK_TIME_MINUTES - (difftime(currentTime, lockTime) / 60)) << " minutes before trying again." << endl;
+            cout << "\tAccount locked. Please wait " << (LOCK_TIME_MINUTES - (difftime(currentTime, lockTime) / 60))
+                 << " minutes before trying again." << endl;
         }
         else
         {
             lockTime = currentTime + (LOCK_TIME_MINUTES * 60);
-            cout << "\tAccount locked for " << LOCK_TIME_MINUTES << " minutes due to too many failed login attempts." << endl;
+            cout << "\tAccount locked for " << LOCK_TIME_MINUTES << " minutes due to too many failed login attempts."
+                 << endl;
         }
     }
 
@@ -823,7 +806,8 @@ bool loginCustomer()
             time_t currentTime = time(0);
             if (currentTime < lockTime)
             {
-                cout << "\tAccount locked. Please wait " << (LOCK_TIME_MINUTES - (difftime(currentTime, lockTime) / 60)) << " minutes before trying again." << endl;
+                cout << "\tAccount locked. Please wait " << (LOCK_TIME_MINUTES - (difftime(currentTime, lockTime) / 60))
+                     << " minutes before trying again." << endl;
                 inFile.close();
                 return false;
             }
@@ -845,13 +829,15 @@ bool loginCustomer()
     inFile.close();
 
     failedAttempts++;
-    cout << "\tInvalid username or password. You have " << (MAX_FAILED_ATTEMPTS - failedAttempts) << " attempts left." << endl;
+    cout << "\tInvalid username or password. You have " << (MAX_FAILED_ATTEMPTS - failedAttempts) << " attempts left."
+         << endl;
 
     // Lock the account if max attempts are reached
     if (failedAttempts >= MAX_FAILED_ATTEMPTS)
     {
         lockTime = time(0) + (LOCK_TIME_MINUTES * 60); // Set the lock time
-        cout << "\tAccount locked for " << LOCK_TIME_MINUTES << " minutes due to too many failed login attempts." << endl;
+        cout << "\tAccount locked for " << LOCK_TIME_MINUTES << " minutes due to too many failed login attempts."
+             << endl;
     }
 
     return false;
@@ -885,13 +871,13 @@ void salesReportMenu()
         switch (choice)
         {
         case 1:
-            salesReport.printBarChart("last week");
+            salesReport.printSalesReport("last week");
             break;
         case 2:
-            salesReport.printBarChart("last month");
+            salesReport.printSalesReport("last month");
             break;
         case 3:
-            salesReport.printBarChart("last year");
+            salesReport.printSalesReport("last year");
             break;
         case 4:
             cout << "Returning to Admin Menu..." << endl;
@@ -922,8 +908,7 @@ void adminMenu(Warehouse &warehouse)
 
         switch (choice)
         {
-        case 1:
-        {
+        case 1: {
             string id, name;
             int qty;
             double price;
@@ -940,16 +925,14 @@ void adminMenu(Warehouse &warehouse)
             system("pause"); // Pause after adding a product
             break;
         }
-        case 2:
-        {
+        case 2: {
             string id;
             cout << "Enter Product ID to Update: ";
             cin >> id;
             warehouse.updateProduct(id);
             break;
         }
-        case 3:
-        {
+        case 3: {
             string id;
             cout << "Enter Product ID to Remove: ";
             cin >> id;
@@ -963,8 +946,7 @@ void adminMenu(Warehouse &warehouse)
         case 5:
             warehouse.viewOrders();
             break;
-        case 6:
-        {
+        case 6: {
             salesReportMenu();
             break;
         }
@@ -994,9 +976,9 @@ void customerMenu(Warehouse &warehouse)
         case 1:
             warehouse.viewInventory();
             break;
-        case 2:
-        {
+        case 2: {
             warehouse.addOrder();
+            warehouse.viewInventory();
             break;
         }
         case 3:
@@ -1023,7 +1005,7 @@ int main()
         cout << "2. Admin Login\n";
         cout << "3. Customer Registration\n";
         cout << "4. Customer Login\n";
-    
+
         cout << "5. Exit\n";
         cout << "Enter your choice: ";
         cin >> choice;
