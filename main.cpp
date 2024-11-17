@@ -229,6 +229,7 @@ public:
 
         orders.push_back(newOrder);
         cout << "Order " << orderID << " added successfully!\n";
+        system("pause"); // Pause after adding an order
     }
 
     void viewInventory() const
@@ -238,6 +239,7 @@ public:
         {
             product.displayProduct();
         }
+        system("pause"); // Pause after viewing inventory
     }
 
     void viewOrders() const
@@ -247,6 +249,7 @@ public:
         {
             order.displayOrder(inventory);
         }
+        system("pause"); // Pause after viewing orders
     }
 
     void searchProduct(const string &searchTerm)
@@ -265,6 +268,7 @@ public:
         {
             cout << "No products found matching: " << searchTerm << endl;
         }
+        system("pause"); // Pause after search results
     }
 
     void deleteProduct(const string &id)
@@ -280,6 +284,7 @@ public:
         {
             cout << "Product ID not found!" << endl;
         }
+        system("pause"); // Pause after deleting a product
     }
 
     void updateProduct(const string &id)
@@ -333,6 +338,7 @@ public:
         {
             cout << "Product ID not found!\n";
         }
+        system("pause"); // Pause after updating a product
     }
 
     void saveInventoryToFile(const string &filename) const
@@ -421,8 +427,7 @@ public:
             }
             cout << " " << data.second << endl;
         }
-
-        // Prompt the user to press any key to continue
+        system("pause"); // Pause after displaying the sales report
     }
 
     vector<Order> filterOrdersByTimeFrame(const string &timeFrame)
@@ -569,10 +574,10 @@ bool registerAdmin()
     outFile.close();
 
     cout << "\tAdmin registered successfully!" << endl;
+    system("pause"); // Pause after admin registration
     return true;
 }
 
-// Admin Login
 // Admin Login
 bool loginAdmin()
 {
@@ -666,6 +671,7 @@ bool registerCustomer()
     outFile.close();
 
     cout << "\tCustomer registered successfully!" << endl;
+    system("pause"); // Pause after customer registration
     return true;
 }
 
@@ -750,7 +756,7 @@ void displayHeader(const string &title)
     system("cls");
     cout << "\n\t************************************************************\n";
     cout << "\t*                                                          *\n";
-    cout << "\t*              " << title << "                             *\n";
+    cout << "\t*               " << title << "                *\n";
     cout << "\t*                                                          *\n";
     cout << "\t************************************************************\n\n";
 }
@@ -773,15 +779,12 @@ void salesReportMenu()
         {
         case 1:
             salesReport.printBarChart("last week");
-            system("pause");
             break;
         case 2:
             salesReport.printBarChart("last month");
-            system("pause");
             break;
         case 3:
             salesReport.printBarChart("last year");
-            system("pause");
             break;
         case 4:
             cout << "Returning to Admin Menu..." << endl;
@@ -789,6 +792,7 @@ void salesReportMenu()
         default:
             cout << "Invalid choice. Please try again." << endl;
         }
+        system("pause"); // Pause after sales report menu
     } while (choice != 4);
 }
 
@@ -826,6 +830,7 @@ void adminMenu(Warehouse &warehouse)
             cin >> price;
             warehouse.addProduct(Product(id, name, qty, price));
             cout << "Product added successfully!" << endl;
+            system("pause"); // Pause after adding a product
             break;
         }
         case 2:
@@ -842,15 +847,14 @@ void adminMenu(Warehouse &warehouse)
             cout << "Enter Product ID to Remove: ";
             cin >> id;
             warehouse.deleteProduct(id);
+            system("pause"); // Pause after removing a product
             break;
         }
         case 4:
             warehouse.viewInventory();
-            system("pause");
             break;
         case 5:
             warehouse.viewOrders();
-            system("pause");
             break;
         case 6:
         {
@@ -882,7 +886,6 @@ void customerMenu(Warehouse &warehouse)
         {
         case 1:
             warehouse.viewInventory();
-            system("pause");
             break;
         case 2:
         {
@@ -921,7 +924,6 @@ int main()
         {
         case 1:
             registerAdmin();
-            system("pause");
             break;
         case 2:
             if (loginAdmin())
@@ -931,7 +933,6 @@ int main()
             break;
         case 3:
             registerCustomer();
-            system("pause");
             break;
         case 4:
             if (loginCustomer())
@@ -947,6 +948,7 @@ int main()
         default:
             cout << "Invalid choice. Please try again." << endl;
         }
+        system("pause"); // Pause after main menu options
     } while (choice != 5);
 
     return 0;
