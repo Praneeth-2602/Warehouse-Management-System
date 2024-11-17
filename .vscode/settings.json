@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.ejs": "html",
+        "*.cpp": "cpp",
+        "unordered_map": "cpp",
+        "xstring": "cpp",
+        "string": "cpp",
+        "vector": "cpp"
+    }
+}

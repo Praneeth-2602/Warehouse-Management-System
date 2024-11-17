@@ -37,13 +37,13 @@ string hashPassword(const string &password)
 // Product Class
 class Product
 {
-  private:
+private:
     string productID;
     string name;
     int quantity;
     double price;
 
-  public:
+public:
     Product(string id, string name, int qty, double price) : productID(id), name(name), quantity(qty), price(price)
     {
     }
@@ -108,14 +108,14 @@ class Product
 // Order Class
 class Order
 {
-  private:
+private:
     string orderID;                     // Unique identifier for the order
     vector<string> orderedProductNames; // List of product names in the order
     vector<int> quantities;             // List of quantities for each product
     time_t orderDate;                   // Date of the order
     static int orderCounter;            // Counter for order IDs
 
-  public:
+public:
     Order(string id, time_t date) : orderID(id), orderDate(date)
     {
     }
@@ -129,6 +129,25 @@ class Order
     vector<string> getOrderProductNames() const
     {
         return orderedProductNames;
+    }
+    void extractProductNamesFromOrders()
+    {
+        ifstream ordersFile("orders.txt");
+        if (!ordersFile.is_open())
+        {
+            cerr << "Unable to open orders.txt for reading." << endl;
+            return;
+        }
+
+        string line;
+        while (getline(ordersFile, line))
+        {
+            Order order = Order::fromFileFormat(line);
+            const auto &productNames = order.getOrderProductNames();
+            orderedProductNames.insert(orderedProductNames.end(), productNames.begin(), productNames.end());
+        }
+
+        ordersFile.close();
     }
     vector<int> getQuantities() const
     {
@@ -161,7 +180,8 @@ class Order
         for (size_t i = 0; i < orderedProductNames.size(); ++i)
         {
             auto it = find_if(inventory.begin(), inventory.end(),
-                              [&](const Product &product) { return product.getName() == orderedProductNames[i]; });
+                              [&](const Product &product)
+                              { return product.getName() == orderedProductNames[i]; });
 
             if (it != inventory.end())
             {
@@ -178,30 +198,43 @@ class Order
     static Order fromFileFormat(const string &line)
     {
         stringstream ss(line);
-        string orderID;
+        string orderID, productData;
         string dateStr;
-        getline(ss, orderID, ',');
-        getline(ss, dateStr, ',');
+
+        // Extract order ID and order date
+        getline(ss, orderID, ','); // Order ID
+        getline(ss, dateStr, '|'); // Order date (separated by '|')
+
         time_t orderDate;
         try
         {
-            orderDate = static_cast<time_t>(stoll(dateStr)); // Convert string to time_t
+            orderDate = static_cast<time_t>(stoll(dateStr)); // Convert date string to time_t
         }
         catch (const std::invalid_argument &e)
         {
             cerr << "Invalid date format in order file: " << dateStr << endl;
-            orderDate = time(0); // Set to current time as a fallback
+            orderDate = time(0); // Fallback to current time
         }
 
+        // Create an order instance
         Order order(orderID, orderDate);
-        string productData;
-        while (getline(ss, productData, '|'))
+
+        // Extract products and quantities
+        while (getline(ss, productData, '|')) // Read product entries separated by '|'
         {
-            size_t pos = productData.find(',');
-            string productName = productData.substr(0, pos);
-            int quantity = stoi(productData.substr(pos + 1));
-            order.addProduct(productName, quantity); // Ensure product names and quantities are added
+            size_t pos = productData.find(','); // Find the comma separating product name and quantity
+            if (pos != string::npos)
+            {
+                string productName = productData.substr(0, pos);
+                int quantity = stoi(productData.substr(pos + 1)); // Parse quantity
+                order.addProduct(productName, quantity);
+            }
+            else
+            {
+                cerr << "Invalid product data format: " << productData << endl;
+            }
         }
+
         return order;
     }
 };
@@ -211,11 +244,11 @@ int Order::orderCounter = 1;
 // Warehouse Class
 class Warehouse
 {
-  private:
+private:
     vector<Product> inventory;
     vector<Order> orders;
 
-  public:
+public:
     void addProduct(const Product &product)
     {
         inventory.push_back(product);
@@ -245,7 +278,8 @@ class Warehouse
 
             // Find the product in the inventory by name
             auto it = find_if(inventory.begin(), inventory.end(),
-                              [&](Product &product) { return product.getName() == productName; });
+                              [&](Product &product)
+                              { return product.getName() == productName; });
 
             if (it != inventory.end())
             {
@@ -304,9 +338,8 @@ class Warehouse
             double totalCost = 0.0;
             for (size_t i = 0; i < newOrder.getOrderProductNames().size(); ++i)
             {
-                auto it = find_if(inventory.begin(), inventory.end(), [&](const Product &product) {
-                    return product.getName() == newOrder.getOrderProductNames()[i];
-                });
+                auto it = find_if(inventory.begin(), inventory.end(), [&](const Product &product)
+                                  { return product.getName() == newOrder.getOrderProductNames()[i]; });
 
                 if (it != inventory.end())
                 {
@@ -372,7 +405,8 @@ class Warehouse
     void deleteProduct(const string &id)
     {
         auto it = remove_if(inventory.begin(), inventory.end(),
-                            [&](const Product &product) { return product.getProductID() == id; });
+                            [&](const Product &product)
+                            { return product.getProductID() == id; });
         if (it != inventory.end())
         {
             inventory.erase(it, inventory.end());
@@ -388,7 +422,8 @@ class Warehouse
     void updateProduct(const string &id)
     {
         auto it =
-            find_if(inventory.begin(), inventory.end(), [&](Product &product) { return product.getProductID() == id; });
+            find_if(inventory.begin(), inventory.end(), [&](Product &product)
+                    { return product.getProductID() == id; });
 
         if (it != inventory.end())
         {
@@ -401,7 +436,8 @@ class Warehouse
 
             switch (choice)
             {
-            case 1: {
+            case 1:
+            {
                 string newName;
                 cout << "Enter new name: ";
                 cin >> newName;
@@ -409,7 +445,8 @@ class Warehouse
                 cout << "Product name updated successfully.\n";
                 break;
             }
-            case 2: {
+            case 2:
+            {
                 int newQty;
                 cout << "Enter new quantity: ";
                 cin >> newQty;
@@ -417,7 +454,8 @@ class Warehouse
                 cout << "Product quantity updated successfully.\n";
                 break;
             }
-            case 3: {
+            case 3:
+            {
                 double newPrice;
                 cout << "Enter new price: ";
                 cin >> newPrice;
@@ -481,7 +519,7 @@ class Warehouse
 
 class SalesReport
 {
-  public:
+public:
     void printSalesReport(const string &timeFrame)
     {
         generateSalesReport();
@@ -500,7 +538,7 @@ class SalesReport
         printAverageSales(filteredOrders.size());
     }
 
-  private:
+private:
     void printBarChart(const unordered_map<string, int> &salesData)
     {
         int maxSales = 0;
@@ -532,15 +570,19 @@ class SalesReport
     unordered_map<string, int> aggregateSalesData(const vector<Order> &filteredOrders)
     {
         unordered_map<string, int> salesData;
+
         for (const auto &order : filteredOrders)
         {
             const auto &productNames = order.getOrderProductNames();
             const auto &quantities = order.getQuantities();
+
+            // Ensure both vectors are properly populated
             for (size_t i = 0; i < productNames.size(); ++i)
             {
-                salesData[productNames[i]] += quantities[i]; // Sum quantities for each product
+                salesData[productNames[i]] += quantities[i];
             }
         }
+
         return salesData;
     }
 
@@ -559,7 +601,8 @@ class SalesReport
     {
         cout << "\nTop Selling Products:" << endl;
         vector<pair<string, int>> sortedSales(salesData.begin(), salesData.end());
-        sort(sortedSales.begin(), sortedSales.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+        sort(sortedSales.begin(), sortedSales.end(), [](const auto &a, const auto &b)
+             { return a.second > b.second; });
 
         for (size_t i = 0; i < min(sortedSales.size(), size_t(5)); ++i)
         {
@@ -908,7 +951,8 @@ void adminMenu(Warehouse &warehouse)
 
         switch (choice)
         {
-        case 1: {
+        case 1:
+        {
             string id, name;
             int qty;
             double price;
@@ -925,14 +969,16 @@ void adminMenu(Warehouse &warehouse)
             system("pause"); // Pause after adding a product
             break;
         }
-        case 2: {
+        case 2:
+        {
             string id;
             cout << "Enter Product ID to Update: ";
             cin >> id;
             warehouse.updateProduct(id);
             break;
         }
-        case 3: {
+        case 3:
+        {
             string id;
             cout << "Enter Product ID to Remove: ";
             cin >> id;
@@ -946,7 +992,8 @@ void adminMenu(Warehouse &warehouse)
         case 5:
             warehouse.viewOrders();
             break;
-        case 6: {
+        case 6:
+        {
             salesReportMenu();
             break;
         }
@@ -976,7 +1023,8 @@ void customerMenu(Warehouse &warehouse)
         case 1:
             warehouse.viewInventory();
             break;
-        case 2: {
+        case 2:
+        {
             warehouse.addOrder();
             warehouse.viewInventory();
             break;
