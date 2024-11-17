@@ -182,55 +182,105 @@ public:
         inventory.push_back(product);
     }
 
-    void addOrder()
-    {
-        // Generate a new order ID
-        string orderID = "O" + to_string(orders.size() + 1);
+    void addOrder() {
+    // Generate a new order ID
+    string orderID = "O" + to_string(orders.size() + 1);
 
-        time_t now = time(0);
-        Order newOrder(orderID, now);
-        string productID;
-        int quantity;
-        char addMore;
+    time_t now = time(0);
+    Order newOrder(orderID, now);
+    string productName;
+    int quantity;
+    char addMore;
 
-        do
-        {
-            cout << "Enter Product ID to add to order: ";
-            cin >> productID;
-            cout << "Enter Quantity: ";
-            cin >> quantity;
+    cout << "Adding a new order: " << orderID << "\n";
+    cout << "Order Date and Time: " << ctime(&now);
 
-            // Find the product in the inventory
-            auto it = find_if(inventory.begin(), inventory.end(), [&](Product &product)
-                              { return product.getProductID() == productID; });
+    do {
+        cout << "Enter Product Name to add to order: ";
+        cin.ignore(); // Clear the buffer
+        getline(cin, productName);
+        cout << "Enter Quantity: ";
+        cin >> quantity;
 
-            if (it != inventory.end())
-            {
-                if (it->getQuantity() >= quantity)
-                {
-                    newOrder.addProduct(productID, quantity);
-                    it->updateQuantity(it->getQuantity() - quantity);
-                    cout << "Product " << productID << " added to the order.\n";
-                }
-                else
-                {
-                    cout << "Insufficient quantity in inventory.\n";
-                }
+        // Find the product in the inventory by name
+        auto it = find_if(inventory.begin(), inventory.end(), [&](Product &product) {
+            return product.getName() == productName;
+        });
+
+        if (it != inventory.end()) {
+            if (it->getQuantity() >= quantity) {
+                newOrder.addProduct(it->getProductID(), quantity);
+                it->updateQuantity(it->getQuantity() - quantity);
+                cout << "Product \"" << productName << "\" found and added to the order successfully.\n";
+            } else {
+                cout << "Insufficient quantity in inventory.\n";
             }
-            else
-            {
-                cout << "Product ID " << productID << " not found in inventory.\n";
+        } else {
+            cout << "Product \"" << productName << "\" not found in inventory.\n";
+        }
+
+        cout << "Add more products to the order? (y/n): ";
+        cin >> addMore;
+
+    } while (addMore == 'y' || addMore == 'Y');
+
+    // Add the completed order to the order list
+    orders.push_back(newOrder);
+
+    // Generate the order details in the format O1,1731520409|250,250 and save it to orders.txt
+    ofstream ordersFile("orders.txt", ios::app);
+    if (ordersFile.is_open()) {
+        stringstream orderDetails;
+
+        orderDetails << orderID << "," << newOrder.getOrderDate() << "|";
+
+        // Add product details in the format ProductID,Quantity (separated by commas)
+        const auto& productIDs = newOrder.getOrderProductIDs();
+        const auto& quantities = newOrder.getQuantities();
+        for (size_t i = 0; i < productIDs.size(); ++i) {
+            orderDetails << productIDs[i] << "," << quantities[i] << ",";
+        }
+
+        string orderData = orderDetails.str();
+        orderData.pop_back(); // Remove the trailing comma
+        ordersFile << orderData << endl;
+        ordersFile.close();
+
+        // Display the structured invoice
+        cout << "\n===================== INVOICE =====================\n";
+        cout << "Order ID: " << orderID << "\n";
+        cout << "Date: " << ctime(&now);
+        cout << "---------------------------------------------------\n";
+        cout << "Product ID   Product Name       Quantity     Price\n";
+        cout << "---------------------------------------------------\n";
+
+        double totalCost = 0.0;
+        for (size_t i = 0; i < newOrder.getOrderProductIDs().size(); ++i) {
+            auto it = find_if(inventory.begin(), inventory.end(), [&](const Product& product) {
+                return product.getProductID() == newOrder.getOrderProductIDs()[i];
+            });
+
+            if (it != inventory.end()) {
+                double itemCost = it->getPrice() * newOrder.getQuantities()[i];
+                totalCost += itemCost;
+                cout << left << setw(12) << it->getProductID()
+                     << setw(18) << it->getName()
+                     << setw(12) << newOrder.getQuantities()[i]
+                     << fixed << setprecision(2) << itemCost << "\n";
             }
+        }
 
-            cout << "Add more products to the order? (y/n): ";
-            cin >> addMore;
-
-        } while (addMore == 'y' || addMore == 'Y');
-
-        orders.push_back(newOrder);
-        cout << "Order " << orderID << " added successfully!\n";
-        system("pause"); // Pause after adding an order
+        cout << "---------------------------------------------------\n";
+        cout << right << setw(44) << "Total Cost: " << fixed << setprecision(2) << totalCost << "\n";
+        cout << "===================================================\n";
+    } else {
+        cout << "Unable to open orders.txt for writing.\n";
     }
+
+    cout << "Order " << orderID << " added successfully!\n";
+    system("pause"); // Pause after generating the invoice
+}
+
 
     void viewInventory() const
     {
@@ -479,11 +529,68 @@ public:
         return filteredOrders;
     }
 
-    void readInvoiceData()
-    {
-        // Placeholder: Implement logic to read invoice data from file or database
-        cout << "Reading invoice data..." << endl;
+    void generateInvoiceFromFile(const string& filename) {
+    string targetOrderID;
+    cout << "Enter the Order ID to generate the invoice: ";
+    cin >> targetOrderID;
+
+    ifstream file(filename);
+    if (!file.is_open()) {
+        cerr << "Error: Could not open file " << filename << endl;
+        return;
     }
+
+    string line;
+    bool orderFound = false;
+
+    while (getline(file, line)) {
+        size_t commaPos = line.find(',');
+        if (commaPos == string::npos) {
+            cerr << "Error: Invalid format in line: " << line << endl;
+            continue;
+        }
+
+        // Extract the OrderID from the line
+        string orderID = line.substr(0, commaPos);
+        if (orderID == targetOrderID) {
+            orderFound = true;
+
+            // Extract order details
+            string userID, itemPrice, quantity;
+            size_t pipePos = line.find('|');
+            if (pipePos == string::npos) {
+                cerr << "Error: Invalid format in line: " << line << endl;
+                break;
+            }
+
+            userID = line.substr(commaPos + 1, pipePos - commaPos - 1);
+
+            stringstream itemData(line.substr(pipePos + 1));
+            getline(itemData, itemPrice, ',');
+            getline(itemData, quantity);
+
+            double price = stod(itemPrice);
+            int qty = stoi(quantity);
+            double total = price * qty;
+
+            // Print the invoice
+            cout << "\n==================== Invoice ====================" << endl;
+            cout << "Order ID: " << orderID << endl;
+            cout << "User ID: " << userID << endl;
+            cout << "Price per Item: " << fixed << setprecision(2) << price << endl;
+            cout << "Quantity: " << qty << endl;
+            cout << "Total Amount: " << total << endl;
+            cout << "================================================" << endl;
+            break;
+        }
+    }
+
+    if (!orderFound) {
+        cout << "Order ID " << targetOrderID << " not found in the file." << endl;
+    }
+
+    file.close();
+}
 
     void readStockData()
     {
@@ -493,7 +600,7 @@ public:
 
     void generateSalesReport()
     {
-        // Placeholder: Implement logic to generate a full sales report
+        // Placeholder: Implement logic to generate sales report
         cout << "Generating sales report..." << endl;
     }
 
@@ -916,6 +1023,7 @@ int main()
         cout << "2. Admin Login\n";
         cout << "3. Customer Registration\n";
         cout << "4. Customer Login\n";
+    
         cout << "5. Exit\n";
         cout << "Enter your choice: ";
         cin >> choice;
