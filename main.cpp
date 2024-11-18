@@ -529,75 +529,56 @@ public:
         return filteredOrders;
     }
 
-    void generateInvoiceFromFile(const string& filename) {
-    string targetOrderID;
-    cout << "Enter the Order ID to generate the invoice: ";
-    cin >> targetOrderID;
-
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cerr << "Error: Could not open file " << filename << endl;
-        return;
-    }
-
-    string line;
-    bool orderFound = false;
-
-    while (getline(file, line)) {
-        size_t commaPos = line.find(',');
-        if (commaPos == string::npos) {
-            cerr << "Error: Invalid format in line: " << line << endl;
-            continue;
-        }
-
-        // Extract the OrderID from the line
-        string orderID = line.substr(0, commaPos);
-        if (orderID == targetOrderID) {
-            orderFound = true;
-
-            // Extract order details
-            string userID, itemPrice, quantity;
-            size_t pipePos = line.find('|');
-            if (pipePos == string::npos) {
-                cerr << "Error: Invalid format in line: " << line << endl;
-                break;
-            }
-
-            userID = line.substr(commaPos + 1, pipePos - commaPos - 1);
-
-            stringstream itemData(line.substr(pipePos + 1));
-            getline(itemData, itemPrice, ',');
-            getline(itemData, quantity);
-
-            double price = stod(itemPrice);
-            int qty = stoi(quantity);
-            double total = price * qty;
-
-            // Print the invoice
-            cout << "\n==================== Invoice ====================" << endl;
-            cout << "Order ID: " << orderID << endl;
-            cout << "User ID: " << userID << endl;
-            cout << "Price per Item: " << fixed << setprecision(2) << price << endl;
-            cout << "Quantity: " << qty << endl;
-            cout << "Total Amount: " << total << endl;
-            cout << "================================================" << endl;
-            break;
-        }
-    }
-
-    if (!orderFound) {
-        cout << "Order ID " << targetOrderID << " not found in the file." << endl;
-    }
-
-    file.close();
-}
-
+    
     void readStockData()
     {
-        // Placeholder: Implement logic to read stock data from file or database
-        cout << "Reading stock data..." << endl;
-    }
+        // Open the inventory file
+        ifstream inventoryFile("inventory.txt");
 
+        if (!inventoryFile)
+        {
+            cerr << "Error: Unable to open inventory.txt file!" << endl;
+            return;
+        }
+
+        // Print a structured header
+        cout << "=================== Stock Data ===================" << endl;
+        cout << setw(10) << left << "ID"
+             << setw(20) << left << "Product Name"
+             << setw(10) << left << "Quantity"
+             << setw(15) << left << "Price" << endl;
+        cout << string(55, '-') << endl;
+
+        string line;
+        while (getline(inventoryFile, line))
+        {
+            stringstream ss(line);
+            string id, productName, quantityStr, priceStr;
+
+            // Extract fields from the line
+            if (getline(ss, id, ',') && getline(ss, productName, ',') &&
+                getline(ss, quantityStr, ',') && getline(ss, priceStr, ','))
+            {
+                // Convert quantity and price to appropriate types
+                int quantity = stoi(quantityStr);
+                double price = stod(priceStr);
+
+                // Print the data in structured format
+                cout << setw(10) << left << id
+                     << setw(20) << left << productName
+                     << setw(10) << left << quantity
+                     << setw(15) << fixed << setprecision(2) << price << endl;
+            }
+            else
+            {
+                cerr << "Error: Malformed line in inventory.txt -> " << line << endl;
+            }
+        }
+
+        // Close the file and print footer
+        inventoryFile.close();
+        cout << string(55, '=') << endl;
+    }
     void generateSalesReport()
     {
         // Placeholder: Implement logic to generate sales report
