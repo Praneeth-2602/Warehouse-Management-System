@@ -1,5 +1,6 @@
 {
     "files.associations": {
+<<<<<<< HEAD
         "ostream": "cpp",
         "array": "cpp",
         "atomic": "cpp",
@@ -48,5 +49,13 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "typeinfo": "cpp"
+=======
+        "*.ejs": "html",
+        "*.cpp": "cpp",
+        "unordered_map": "cpp",
+        "xstring": "cpp",
+        "string": "cpp",
+        "vector": "cpp"
+>>>>>>> 60e767ee0b54d83c40447aad979d20c176274cfd
     }
 }
