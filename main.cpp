@@ -80,7 +80,7 @@ public:
 
     void displayProduct() const
     {
-        cout << "ID: " << productID << ", Name: " << name << ", Quantity: " << quantity << ", Price: $" << price
+        cout << "ID: " << productID << ", Name: " << name << ", Quantity: " << quantity << ", Price: ₹" << price
              << endl;
     }
 
@@ -185,7 +185,7 @@ public:
 
             if (it != inventory.end())
             {
-                cout << "  - " << orderedProductNames[i] << " (Quantity: " << quantities[i] << ", Price: $"
+                cout << "  - " << orderedProductNames[i] << " (Quantity: " << quantities[i] << ", Price: ₹"
                      << it->getPrice() << ")\n";
             }
             else
@@ -316,6 +316,11 @@ public:
 
             // Add product details in the format ProductName,Quantity (separated by commas)
             const auto &productNames = newOrder.getOrderProductNames();
+            const auto &quantities = newOrder.getQuantities();
+            for (size_t i = 0; i < productNames.size(); ++i)
+            {
+                orderDetails << productNames[i] << "," << quantities[i] << ",";
+            }const auto &productNames = newOrder.getOrderProductNames();
             const auto &quantities = newOrder.getQuantities();
             for (size_t i = 0; i < productNames.size(); ++i)
             {
@@ -520,14 +525,110 @@ public:
 class SalesReport
 {
 public:
-    void printSalesReport(const string &timeFrame)
-    {
-        generateSalesReport();
-        vector<Order> filteredOrders = filterOrdersByTimeFrame(timeFrame);
+    virtual void generateSalesReport(const vector<Order> &orders) = 0; // Pure virtual function
 
+protected:
+    vector<Order> filterOrders(const vector<Order> &orders, time_t startTime, time_t endTime)
+    {
+        vector<Order> filteredOrders;
+        for (const auto &order : orders)
+        {
+            time_t orderDate = order.getOrderDate();
+            if (orderDate >= startTime && orderDate <= endTime)
+            {
+                filteredOrders.push_back(order);
+            }
+        }
+        return filteredOrders;
+    }
+
+    unordered_map<string, int> aggregateSalesData(const vector<Order> &filteredOrders)
+    {
+        unordered_map<string, int> salesData;
+        for (const auto &order : filteredOrders)
+        {
+            const auto &productNames = order.getOrderProductNames();
+            const auto &quantities = order.getQuantities();
+            for (size_t i = 0; i < productNames.size(); ++i)
+            {
+                salesData[productNames[i]] += quantities[i];
+            }
+        }
+        return salesData;
+    }
+
+    void printBarChart(const unordered_map<string, int> &salesData)
+    {
+        int maxSales = 0;
+        for (const auto &data : salesData)
+        {
+            maxSales = max(maxSales, data.second);
+        }
+
+        cout << "\nSales Report Bar Chart:\n";
+        cout << "Product Name        | Sales Quantity\n";
+        cout << "-------------------------------------\n";
+
+        for (const auto &data : salesData)
+        {
+            cout << setw(20) << left << data.first << " | ";
+            int barLength = static_cast<int>((data.second / static_cast<double>(maxSales)) * 50);
+            for (int i = 0; i < barLength; ++i)
+            {
+                cout << "*";
+            }
+            cout << " " << data.second << endl;
+        }
+    }
+
+    void printSalesSummary(const unordered_map<string, int> &salesData)
+    {
+        cout << "\nSales Summary:\n";
+        cout << "Product Name        | Total Quantity Sold\n";
+        cout << "-----------------------------------------\n";
+        for (const auto &data : salesData)
+        {
+            cout << setw(20) << left << data.first << " | " << data.second << endl;
+        }
+    }
+
+    void printTopSellingProducts(const unordered_map<string, int> &salesData)
+    {
+        vector<pair<string, int>> sortedSalesData(salesData.begin(), salesData.end());
+        sort(sortedSalesData.begin(), sortedSalesData.end(), [](const pair<string, int> &a, const pair<string, int> &b)
+             { return b.second < a.second; });
+
+        cout << "\nTop Selling Products:\n";
+        cout << "Product Name        | Total Quantity Sold\n";
+        cout << "-----------------------------------------\n";
+        for (size_t i = 0; i < min(sortedSalesData.size(), size_t(5)); ++i)
+        {
+            cout << setw(20) << left << sortedSalesData[i].first << " | " << sortedSalesData[i].second << endl;
+        }
+    }
+
+    void printAverageSales(size_t totalOrders)
+    {
+        cout << "\nAverage Sales:\n";
+        cout << "Total Orders: " << totalOrders << endl;
+        cout << "Average Orders per Day: " << (totalOrders / 7.0) << endl;
+    }
+};
+
+class WeeklyReport : public SalesReport
+{
+public:
+    void generateSalesReport(const vector<Order> &orders) override
+    {
+        time_t now = time(0);
+        tm lastWeek = *localtime(&now);
+        lastWeek.tm_mday -= 7;
+        mktime(&lastWeek);
+
+        vector<Order> filteredOrders = filterOrders(orders, mktime(&lastWeek), now);
         if (filteredOrders.empty())
         {
-            cout << "No orders found for the specified time frame." << endl;
+            cout << "No orders found for the last week.\n";
             return;
         }
 
@@ -537,152 +638,55 @@ public:
         printTopSellingProducts(salesData);
         printAverageSales(filteredOrders.size());
     }
+};
 
-private:
-    void printBarChart(const unordered_map<string, int> &salesData)
+class MonthlyReport : public SalesReport
+{
+public:
+    void generateSalesReport(const vector<Order> &orders) override
     {
-        int maxSales = 0;
-        for (const auto &data : salesData)
-        {
-            if (data.second > maxSales)
-            {
-                maxSales = data.second;
-            }
-        }
-
-        cout << "\nSales Report Bar Chart:" << endl;
-        cout << "Product Name        | Sales Quantity" << endl;
-        cout << "-------------------------------------" << endl;
-
-        for (const auto &data : salesData)
-        {
-            cout << setw(20) << left << data.first << " | ";
-            int barLength =
-                static_cast<int>((data.second / static_cast<double>(maxSales)) * 50); // Scale to 50 characters
-            for (int i = 0; i < barLength; ++i)
-            {
-                cout << "*";
-            }
-            cout << " " << data.second << endl; // Print the sales quantity
-        }
-    }
-
-    unordered_map<string, int> aggregateSalesData(const vector<Order> &filteredOrders)
-    {
-        unordered_map<string, int> salesData;
-
-        for (const auto &order : filteredOrders)
-        {
-            const auto &productNames = order.getOrderProductNames();
-            const auto &quantities = order.getQuantities();
-
-            // Ensure both vectors are properly populated
-            for (size_t i = 0; i < productNames.size(); ++i)
-            {
-                salesData[productNames[i]] += quantities[i];
-            }
-        }
-
-        return salesData;
-    }
-
-    void printSalesSummary(const unordered_map<string, int> &salesData)
-    {
-        cout << "\nSales Summary:" << endl;
-        int totalSales = 0;
-        for (const auto &data : salesData)
-        {
-            totalSales += data.second;
-        }
-        cout << "Total Sales: " << totalSales << endl;
-    }
-
-    void printTopSellingProducts(const unordered_map<string, int> &salesData)
-    {
-        cout << "\nTop Selling Products:" << endl;
-        vector<pair<string, int>> sortedSales(salesData.begin(), salesData.end());
-        sort(sortedSales.begin(), sortedSales.end(), [](const auto &a, const auto &b)
-             { return a.second > b.second; });
-
-        for (size_t i = 0; i < min(sortedSales.size(), size_t(5)); ++i)
-        {
-            cout << sortedSales[i].first << ": " << sortedSales[i].second << endl;
-        }
-    }
-
-    void printAverageSales(int totalOrders)
-    {
-        if (totalOrders > 0)
-        {
-            cout << "Average Sales per Order: " << fixed << setprecision(2) << (totalOrders / 1.0)
-                 << endl; // Placeholder for actual calculation
-        }
-        else
-        {
-            cout << "No orders to calculate average sales." << endl;
-        }
-    }
-
-    vector<Order> filterOrdersByTimeFrame(const string &timeFrame)
-    {
-        vector<Order> filteredOrders;
-        ifstream ordersFile("orders.txt");
-        string line;
         time_t now = time(0);
-        tm *ltm = localtime(&now);
+        tm lastMonth = *localtime(&now);
+        lastMonth.tm_mon -= 1;
+        mktime(&lastMonth);
 
-        while (getline(ordersFile, line))
+        vector<Order> filteredOrders = filterOrders(orders, mktime(&lastMonth), now);
+        if (filteredOrders.empty())
         {
-            Order order = Order::fromFileFormat(line);
-            time_t orderDate = order.getOrderDate();
-
-            // Calculate the time frames
-            if (timeFrame == "last week")
-            {
-                tm lastWeek = *ltm;
-                lastWeek.tm_mday -= 7; // Move back 7 days
-                mktime(&lastWeek);     // Normalize the date
-                if (orderDate >= mktime(&lastWeek) && orderDate <= now)
-                {
-                    filteredOrders.push_back(order);
-                }
-            }
-            else if (timeFrame == "last month")
-            {
-                tm lastMonth = *ltm;
-                lastMonth.tm_mon -= 1; // Move back 1 month
-                mktime(&lastMonth);    // Normalize the date
-                if (orderDate >= mktime(&lastMonth) && orderDate <= now)
-                {
-                    filteredOrders.push_back(order);
-                }
-            }
-            else if (timeFrame == "last year")
-            {
-                tm lastYear = *ltm;
-                lastYear.tm_year -= 1; // Move back 1 year
-                mktime(&lastYear);     // Normalize the date
-                if (orderDate >= mktime(&lastYear) && orderDate <= now)
-                {
-                    filteredOrders.push_back(order);
-                }
-            }
+            cout << "No orders found for the last month.\n";
+            return;
         }
-        ordersFile.close();
-        return filteredOrders;
+
+        unordered_map<string, int> salesData = aggregateSalesData(filteredOrders);
+        printBarChart(salesData);
+        printSalesSummary(salesData);
+        printTopSellingProducts(salesData);
+        printAverageSales(filteredOrders.size());
     }
+};
 
-    
-
-    void readStockData()
+class YearlyReport : public SalesReport
+{
+public:
+    void generateSalesReport(const vector<Order> &orders) override
     {
-        // Placeholder: Implement logic to read stock data from file or database
-        cout << "Reading stock data..." << endl;
-    }
+        time_t now = time(0);
+        tm lastYear = *localtime(&now);
+        lastYear.tm_year -= 1;
+        mktime(&lastYear);
 
-    void generateSalesReport()
-    {
-        cout << "Generating sales report..." << endl;
+        vector<Order> filteredOrders = filterOrders(orders, mktime(&lastYear), now);
+        if (filteredOrders.empty())
+        {
+            cout << "No orders found for the last year.\n";
+            return;
+        }
+
+        unordered_map<string, int> salesData = aggregateSalesData(filteredOrders);
+        printBarChart(salesData);
+        printSalesSummary(salesData);
+        printTopSellingProducts(salesData);
+        printAverageSales(filteredOrders.size());
     }
 };
 
@@ -918,17 +922,29 @@ void salesReportMenu()
         cout << "Enter your choice: ";
         cin >> choice;
 
-        SalesReport salesReport;
+        vector<Order> orders;
+        ifstream ordersFile("orders.txt");
+        string line;
+        while (getline(ordersFile, line))
+        {
+            orders.push_back(Order::fromFileFormat(line));
+        }
+        ordersFile.close();
+
+        WeeklyReport weeklyReport;
+        MonthlyReport monthlyReport;
+        YearlyReport yearlyReport;
+
         switch (choice)
         {
         case 1:
-            salesReport.printSalesReport("last week");
+            weeklyReport.generateSalesReport(orders);
             break;
         case 2:
-            salesReport.printSalesReport("last month");
+            monthlyReport.generateSalesReport(orders);
             break;
         case 3:
-            salesReport.printSalesReport("last year");
+            yearlyReport.generateSalesReport(orders);
             break;
         case 4:
             cout << "Returning to Admin Menu..." << endl;
